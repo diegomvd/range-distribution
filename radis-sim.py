@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import glob, os, sys
+import time
 
 import matplotlib.pyplot as plt
 import matplotlib.style as style
@@ -36,36 +37,41 @@ class PredatorPopulation:
 
         # given a species coorcurrence list and a list of prefered preys, the
         # function returns 1 if any of the coocurring species is in the prey list
-        def getInteractions(coOcurrentIndividuals,listOfPreys):
-            interaction=0
-            for i in range(len(coOcurrentIndividuals)):
-                if coOcurrentIndividuals[i]==1:
-                    interaction=1
-                    break
-            return interaction        
+        def getDietSurvival(coOcurrentPreys, dietPreferences, param, preyPopulationList):
+            # first determine the possible interactions and how much the predator
+            # benefits from them
+            preyProbability=np.zeros(len(coOcurrentPreys))
+            dietPreferencesPop = np.zeros(len(coOcurrentPreys))
+            for i in range(len(dietPreferencesPop)):
+                sid=preyPopulationList[i].species.id
+                dietPreferencesPop[i]=dietPreferences[sid]
 
-        # given the realized trophic interactions this function returns the
-        # probability that a species will survive based solely on diet
-        def getDietSurvival(trophicInteractions):
-            return trophicInteractions
+            for i in range(len(preyProbability)):
+                preyProbability[i]=coOcurrentPreys[i]*(dietPreferencesPop[i] - (dietPreferencesPop[i]-0.5)*param)
+            maxPotentialProb=1-0.5*param
+            preyProbability=preyProbability/maxPotentialProb
+
+            # get the survival probablility
+            dietSurvival = np.max(preyProbability)
+
+            return dietSurvival
 
         # species characteristics
-        listOfPreys=self.species.preys
+        dietPreferences=self.species.preys
         meanEnvironment=self.species.ymean
         stdEnvironment=self.species.ystd
         R=self.species.radius
 
         # probability of survival given the environment preferences
-        environmentSurvival = gaussianFunction(self.y,1,meanEnvironment,stdEnvironment)
+        environmentSuitability = gaussianFunction(self.y,1,meanEnvironment,stdEnvironment)-gaussianFunction(meanEnvironment,1,meanEnvironment,stdEnvironment)
 
         # probability of survival given the prefered diet and coocurring species
-        coOcurrentIndividuals = getCoOcurrence(self.id, R, distanceMatrix, preyPopulationList)
-        trophicInteractions = getInteractions(coOcurrentIndividuals, listOfPreys)
-        dietSurvival = getDietSurvival(trophicInteractions)
+        coOcurrentPreys = getCoOcurrence(self.id, R, distanceMatrix, preyPopulationList)
+        dietSurvival = getDietSurvival(coOcurrentPreys, dietPreferences, param, preyPopulationList)
 
         # composed probability where param controls the relative importance of the
         # environment versus the diet on survival
-        return param * environmentSurvival + (1-param) * dietSurvival
+        return dietSurvival*(1 + (1-param)*environmentSuitability )
 
 class PreyPopulation:
 
@@ -87,21 +93,34 @@ class PreyPopulation:
 
 class Predator:
 
-    def __init__(self, mean, std, list, R):
+    def __init__(self, mean, std, list, R, i):
         self.ymean = mean
         self.ystd = std
         self.preys = list
         self.radius = R
+        self.id = i
 
 class Prey:
 
-    def __init__(self, mean, std):
+    def __init__(self, mean, std, i):
         self.ymean = mean
         self.ystd = std
+        self.id = i
 
 # normal distribution for environment suitability
 def gaussianFunction(x,A,mean,std):
     return A*np.exp(-0.5*(x-mean)*(x-mean)/std/std)
+
+def getPopCell(x,y,ncells,L):
+    dl=np.int(L*L/ncells)
+    n = np.int(L/dl)
+
+    cellx = np.floor(x/dl)
+    celly = np.floor(y/dl)
+
+    cellid = celly*n + cellx
+
+    return cellid
 
 ###############################################################################
 # end of classes and functions declaration
@@ -113,10 +132,11 @@ nPreyPopulations=1000
 nPredators=10
 nPreys=10
 connectance=0.2
-Time=1
+Time=100
 Lx=100
 Ly=100
 param=0.5
+ncells=Lx*Ly
 
 ###############################################################################
 
@@ -133,16 +153,16 @@ predatorList=[]
 for i in range(nPredators):
     mean = rng.uniform(0,Ly)
     std = rng.uniform(0,Ly/3)
-    listOfPreys=np.where(interactionMatrix[i,:]==1)
+    dietPreferences=interactionMatrix[:,i]
     radius = rng.uniform(0,std/10)
-    predatorList.append( Predator(mean,std,listOfPreys,radius) )
+    predatorList.append( Predator(mean,std,dietPreferences,radius,i) )
 
 # prey list initialization
 preyList=[]
 for i in range(nPreys):
     mean = rng.uniform(0,Ly)
     std = rng.uniform(0,Ly/3)
-    preyList.append( Prey(mean,std) )
+    preyList.append( Prey(mean,std,i) )
 
 # predator's population initialization
 predatorPopulationList=[]
@@ -171,7 +191,10 @@ for i in range(nPredatorPopulations):
         yj=preyPopulationList[j].y
         distanceMatrix[i,j] = np.sqrt( ((xi-xj)*(xi-xj) + (yi-yj)*(yi-yj)) )
 
+###############################################################################
+
 # begin of simulation
+t0= time.time()
 for t in range(Time):
 
     for i in range(nPreyPopulations):
@@ -189,3 +212,12 @@ for t in range(Time):
             ypos = predatorPopulationList[i].y
             s = predatorList[rng.integers(0,nPredators)]
             predatorPopulationList[i]=PredatorPopulation(xpos,ypos,s,i)
+
+
+
+
+
+
+
+t1 = time.time()
+print("Time elapsed: ", t1 - t0)
