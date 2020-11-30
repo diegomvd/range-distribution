@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import glob, os, sys
+import sys
 import time
-
-import matplotlib.pyplot as plt
-import matplotlib.style as style
-import seaborn as sns
-
 import numpy as np
 from numpy.random import default_rng
 rng = default_rng()
@@ -129,20 +124,21 @@ def getNeighbours(x,y,xCells,yCells):
 ###############################################################################
 
 # model Parameters
-nPredatorPopulations=1000
-nPreyPopulations=1000
-nPredators=20
-nPreys=50
-connectance=0.2
-Time=1000
-xCells=30
-yCells=30
-dl=1
-param=1
+Time=np.int(sys.argv[1])
+xCells=np.int(sys.argv[2])
+yCells=np.int(sys.argv[3])
+dl=np.float(sys.argv[4])
+param=np.float(sys.argv[5])
+connectance=np.float(sys.argv[6])
+nPredators=np.int(sys.argv[7])
+nPreys=np.int(sys.argv[8])
+nPredatorPopulations=np.int(sys.argv[9])
+nPreyPopulations=np.int(sys.argv[10])
+maxstd=np.double(sys.argv[11])
 ncells=xCells*yCells
 
-filename_prey= "DATA_RD_PREY_T_"+str(Time)+"_Nx_"+str(xCells)+"_Ny_"+str(yCells)+"_dl_"+str(dl)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+".csv"
-filename_predator= "DATA_RD_PREDATOR_T_"+str(Time)+"_Nx_"+str(xCells)+"_Ny_"+str(yCells)+"_dl_"+str(dl)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+".csv"
+filename_prey= "DATA_RD_PREY_T_"+str(Time)+"_Nx_"+str(xCells)+"_Ny_"+str(yCells)+"_dl_"+str(dl)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+"_SD_"+str(maxstd)+".csv"
+filename_predator= "DATA_RD_PREDATOR_T_"+str(Time)+"_Nx_"+str(xCells)+"_Ny_"+str(yCells)+"_dl_"+str(dl)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+"_SD_"+str(maxstd)+".csv"
 
 ###############################################################################
 
@@ -153,8 +149,6 @@ for i in range(nPredators):
     for j in range(nPreys):
         if rng.uniform()<connectance:
             interactionMatrix[i,j]=1
-
-# print(interactionMatrix)
 
 # predator list initialization
 predatorList=[]
@@ -191,13 +185,7 @@ for i in range(nPreyPopulations):
 
 # begin of simulation
 t0= time.time()
-tt=0
 for t in range(Time):
-
-    tt=tt+1
-    if tt>100:
-     print(t)
-     tt=0
 
     for i in range(nPreyPopulations):
 
@@ -207,6 +195,8 @@ for t in range(Time):
             neighbourList = getNeighbours(xpos,ypos,xCells,yCells)
             #making a list with all the species present in the neighbourhood
             candidateReplacementSpecies=[]
+            # think of replacement by choosing first the random neighbour and then the species
+            # by randomly choosing a population. this takes into account the density of a given species
             for preyPop in preyPopulationList:
                 pos = [preyPop.x,preyPop.y]
                 for neighbour in neighbourList:
@@ -246,6 +236,8 @@ for predatorPopulation in predatorPopulationList:
     ix=predatorPopulation.id
     predatorPopByCell[x,y,ix]=1
 
+
+
 # returns the preys located in each cell
 preyPopByCell=np.zeros((xCells,yCells,nPreyPopulations))
 for preyPopulation in preyPopulationList:
@@ -253,6 +245,11 @@ for preyPopulation in preyPopulationList:
     y=preyPopulation.y
     ix=preyPopulation.id
     preyPopByCell[x,y,ix]=1
+
+# print("Predator and prey populations per cell")
+# print(predatorPopByCell[0,0,:])
+# print(preyPopByCell[0,0,:])
+# print("\n")
 
 # initialize a list of the interaction matrixes
 interactionMatrixList=np.zeros((ncells,nPredators,nPreys))
@@ -265,19 +262,27 @@ for x in range(xCells):
             if predatorPresence == 1:
                 cellid = x+xCells*y
                 normalizedPreyWeights = predatorPopulationList[ix].getNormalizedPreyWeights(param,preyPopulationList)
+                # print("Predator Population "+ str(ix) +" is of species")
+                # print(predatorPopulationList[ix].species.id)
+                # print("Normalized prey weights for the predator population "+str(ix))
+                # print(normalizedPreyWeights)
                 if np.any(normalizedPreyWeights>0):
                     normalizedPreyWeights/=np.max(normalizedPreyWeights)
                 populationInteractionVector=normalizedPreyWeights
                 populationInteractionVector[populationInteractionVector<1]=0
+                # print("Interaction Vector for the predator population "+ str(ix))
+                # print(populationInteractionVector)
 
-                speciesInteractionVector=np.zeros(nPreys)
-                for ix,populationInteraction in enumerate(populationInteractionVector):
+                for jx,populationInteraction in enumerate(populationInteractionVector):
                     if populationInteraction == 1:
-                        prey_sid=preyPopulationList[ix].species.id
-                        speciesInteractionVector[prey_sid]=1
+                        prey_sid=preyPopulationList[jx].species.id
+                        predator_sid = predatorPopulationList[ix].species.id
+                        interactionMatrixList[cellid,predator_sid,prey_sid]=1
 
-                predator_sid = predatorPopulationList[ix].species.id
-                interactionMatrixList[cellid,predator_sid,:]=speciesInteractionVector
+
+# print("\n")
+# print(interactionMatrixList[0,:,:])
+# print("\n")
 
 #global interaction matrix
 globalInteractionMatrix = np.zeros((nPredators,nPreys))
@@ -289,11 +294,11 @@ for ix in range(ncells):
 
 # number of preys by predator
 predatorDiet = np.transpose([np.sum(globalInteractionMatrix,axis=1)])
-print(predatorDiet)
+# print(predatorDiet)
 
 # number of predators by prey
 preyDiet = np.transpose([np.sum(globalInteractionMatrix,axis=0)])
-print(preyDiet)
+# print(preyDiet)
 
 # calculate the fraction of the total area occupied by each species
 predatorOccupancyMatrix=np.zeros((ncells,nPredators))
