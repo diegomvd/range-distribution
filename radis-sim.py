@@ -64,7 +64,7 @@ class PredatorPopulation:
         stdEnvironment=self.species.xstd
 
         # probability of survival given the environment preferences
-        environmentSuitability = (gaussianFunction((self.x+1),1,meanEnvironment,stdEnvironment)-gaussianFunction((self.x),1,meanEnvironment,stdEnvironment))*0.5
+        environmentSuitability = gaussianFunction(self.x,1,meanEnvironment,stdEnvironment)
 
         dietSurvival = self.getDietSurvival(param,preyPopulationList)
 
@@ -78,23 +78,13 @@ class PredatorPopulation:
 
 class PreyPopulation:
 
-    def __init__(self, xpos, ypos, s, i):
+    def __init__(self, xpos, s, i):
         self.x = xpos
         self.species = s
         self.id = i
 
     def change_position(self, xnew):
         self.x = xnew
-
-    def survival_probability(self):
-
-        meanEnvironment=self.species.xmean
-        stdEnvironment=self.species.xstd
-
-        # probability of survival given the environment preferences
-        environmentSurvival = (gaussianFunction((self.x+1),1,meanEnvironment,stdEnvironment)-gaussianFunction((self.x),1,meanEnvironment,stdEnvironment))*0.5
-
-        return environmentSurvival
 
 class Predator:
 
@@ -116,12 +106,12 @@ def gaussianFunction(x,A,mean,std):
     return A*np.exp(-0.5*(x-mean)*(x-mean)/std/std)
 
 def getNeighbours(x,xCells):
-    north=[x+1]
-    south=[x-1]
+    north=x+1
+    south=x-1
     if x+1 > xCells-1:
-        north=[x-1] # reflective border conditions
+        north=x-1 # reflective border conditions
     if x-1 < 0:
-        south=[x+1] # reflective border conditions
+        south=x+1 # reflective border conditions
     return [north, south]
 
 ###############################################################################
@@ -181,7 +171,7 @@ for i in range(nPreyPopulations):
     s = preyList[rng.integers(0,nPreys)]
     spatialDistribution = np.zeros(xCells)
     for x in range(xCells):
-        spatialDistribution[x] = gaussian(x,1,s.mean,s.std)
+        spatialDistribution[x] = gaussianFunction(x,1,s.xmean,s.xstd)
     spatialDistribution = np.cumsum(spatialDistribution)/np.sum(spatialDistribution)
     rix = rng.random()
     xpos=0
@@ -294,17 +284,20 @@ predatorOccupancy = np.transpose([np.sum(predatorOccupancyMatrix,axis=0)])
 
 # save the environmental spread and the initial list size
 stdPredatorArray=np.zeros(len(predatorList))
-listpredatorArray=np.zeros(len(predatorList))
+listPredatorArray=np.zeros(len(predatorList))
 for ix,predator in enumerate(predatorList):
-    stdPredatorArray[ix] = predator.std
-    listPredatorArray[ix] = len(predator.prey)
+    stdPredatorArray[ix] = predator.xstd
+    listPredatorArray[ix] = len(predator.preys)
+stdPredatorArray=stdPredatorArray.reshape((len(stdPredatorArray),1))
+listPredatorArray=listPredatorArray.reshape((len(listPredatorArray),1))
 
 stdPreyArray=np.zeros(len(preyList))
 for ix,prey in enumerate(preyList):
-    stdPreyArray[ix] = prey.std
+    stdPreyArray[ix] = prey.xstd
+stdPreyArray=stdPreyArray.reshape((len(stdPreyArray),1))
 
-paramPreyArray = np.ones(len(preyList))*param
-paramPredatorArray = np.ones(len(predatorList))*param
+paramPreyArray = param*np.ones(len(preyList)).reshape((len(preyList),1))
+paramPredatorArray = param*np.ones(len(predatorList)).reshape((len(predatorList),1))
 
 saveArrayPredator=np.concatenate( (paramPredatorArray, stdPredatorArray, listPredatorArray, predatorDiet ,predatorOccupancy) , axis=1)
 saveArrayPrey=np.concatenate( (paramPreyArray, stdPreyArray, preyDiet, preyOccupancy),axis=1)
