@@ -302,8 +302,8 @@ paramPredatorArray = param*np.ones(len(predatorList)).reshape((len(predatorList)
 saveArrayPredator=np.concatenate( (paramPredatorArray, stdPredatorArray, listPredatorArray, predatorDiet ,predatorOccupancy) , axis=1)
 saveArrayPrey=np.concatenate( (paramPreyArray, stdPreyArray, preyDiet, preyOccupancy),axis=1)
 
-np.savetxt(filename_prey,saveArrayPrey,delimiter=",",header="phi,spread,Npreferedprey,Nrealizedprey,occupancy")
-np.savetxt(filename_predator,saveArrayPredator,delimiter=",",header="phi,spread,Npredators,occupancy")
+np.savetxt(filename_prey,saveArrayPrey,delimiter=",",header="phi,spread,Npredators,occupancy")
+np.savetxt(filename_predator,saveArrayPredator,delimiter=",",header="phi,spread,Npreferedprey,Nrealizedprey,occupancy")
 
 t1 = time.time()
 print("Time elapsed: ", t1 - t0)
