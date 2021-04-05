@@ -58,13 +58,13 @@ class PredatorPopulation:
         dietSurvival = np.max(preyWeightNormal)
         return dietSurvival
 
-    def survival_probability(self, param, preyPopulationList, dl):
+    def survival_probability(self, param, preyPopulationList):
 
         meanEnvironment=self.species.xmean
         stdEnvironment=self.species.xstd
 
         # probability of survival given the environment preferences
-        environmentSuitability = (gaussianFunction((self.x+1)*dl,1,meanEnvironment,stdEnvironment)-gaussianFunction((self.x)*dl,1,meanEnvironment,stdEnvironment))*0.5
+        environmentSuitability = (gaussianFunction((self.x+1),1,meanEnvironment,stdEnvironment)-gaussianFunction((self.x),1,meanEnvironment,stdEnvironment))*0.5
 
         dietSurvival = self.getDietSurvival(param,preyPopulationList)
 
@@ -86,13 +86,13 @@ class PreyPopulation:
     def change_position(self, xnew):
         self.x = xnew
 
-    def survival_probability(self,dl):
+    def survival_probability(self):
 
         meanEnvironment=self.species.xmean
         stdEnvironment=self.species.xstd
 
         # probability of survival given the environment preferences
-        environmentSurvival = (gaussianFunction((self.x+1)*dl,1,meanEnvironment,stdEnvironment)-gaussianFunction((self.x)*dl,1,meanEnvironment,stdEnvironment))*0.5
+        environmentSurvival = (gaussianFunction((self.x+1),1,meanEnvironment,stdEnvironment)-gaussianFunction((self.x),1,meanEnvironment,stdEnvironment))*0.5
 
         return environmentSurvival
 
@@ -131,18 +131,17 @@ def getNeighbours(x,xCells):
 # model Parameters
 Time=np.int(sys.argv[1])
 xCells=np.int(sys.argv[2])
-dl=np.float(sys.argv[4])
-param=np.float(sys.argv[5])
-connectance=np.float(sys.argv[6])
-nPredators=np.int(sys.argv[7])
-nPreys=np.int(sys.argv[8])
-nPredatorPopulations=np.int(sys.argv[9])
-nPreyPopulations=np.int(sys.argv[10])
-maxstd=np.double(sys.argv[11])
+param=np.float(sys.argv[3])
+connectance=np.float(sys.argv[4])
+nPredators=np.int(sys.argv[5])
+nPreys=np.int(sys.argv[6])
+nPredatorPopulations=np.int(sys.argv[7])
+nPreyPopulations=np.int(sys.argv[8])
+maxstd=np.double(sys.argv[9])
 ncells=xCells
 
-filename_prey= "DATA_RD_PREY_T_"+str(Time)+"_Nx_"+str(xCells)+"_dl_"+str(dl)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+"_SD_"+str(maxstd)+".csv"
-filename_predator= "DATA_RD_PREDATOR_T_"+str(Time)+"_Nx_"+str(xCells)+"_dl_"+str(dl)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+"_SD_"+str(maxstd)+".csv"
+filename_prey= "DATA_RD_PREY_T_"+str(Time)+"_Nx_"+str(xCells)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+"_SD_"+str(maxstd)+".csv"
+filename_predator= "DATA_RD_PREDATOR_T_"+str(Time)+"_Nx_"+str(xCells)+"_param_"+str(param)+"_C_"+str(connectance)+"_nPred_"+str(nPredators)+"_nPrey"+str(nPreys)+"_predPop_"+str(nPredatorPopulations)+"_preyPop_"+str(nPreyPopulations)+"_SD_"+str(maxstd)+".csv"
 
 ###############################################################################
 
@@ -157,16 +156,16 @@ for i in range(nPredators):
 # predator list initialization
 predatorList=[]
 for i in range(nPredators):
-    mean = rng.uniform(0,xCells*dl)
-    std = xCells*dl*rng.random()*maxstd
+    mean = rng.uniform(0,xCells)
+    std = xCells*rng.random()*maxstd
     dietPreferences=interactionMatrix[i,:]
     predatorList.append( Predator(mean,std,dietPreferences,i) )
 
 # prey list initialization
 preyList=[]
 for i in range(nPreys):
-    mean = rng.uniform(0,xCells*dl)
-    std = xCells*dl*rng.random()*maxstd
+    mean = rng.uniform(0,xCells)
+    std = xCells*rng.random()*maxstd
     preyList.append( Prey(mean,std,i) )
 
 # predator's population initialization
@@ -199,7 +198,7 @@ for t in range(Time):
 
     for i in range(nPredatorPopulations):
 
-        if rng.uniform() < (1 - predatorPopulationList[i].survival_probability(param, preyPopulationList, dl)):
+        if rng.uniform() < (1 - predatorPopulationList[i].survival_probability(param, preyPopulationList)):
             # there is a migration
             xpos = predatorPopulationList[i].x
             neighbourList = getNeighbours(xpos,xCells)
