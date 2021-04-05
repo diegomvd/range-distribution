@@ -218,7 +218,6 @@ for predatorPopulation in predatorPopulationList:
     ix=predatorPopulation.id
     predatorPopByCell[x,ix]=1
 
-
 # returns the preys located in each cell
 preyPopByCell=np.zeros((xCells,nPreyPopulations))
 for preyPopulation in preyPopulationList:
@@ -226,46 +225,43 @@ for preyPopulation in preyPopulationList:
     ix=preyPopulation.id
     preyPopByCell[x,ix]=1
 
-# print("Predator and prey populations per cell")
-# print(predatorPopByCell[0,0,:])
-# print(preyPopByCell[0,0,:])
-# print("\n")
-
 # initialize a list of the interaction matrixes
-interactionMatrixList=np.zeros((ncells,nPredators,nPreys))
+interactionMatrixList=np.zeros((xCells,nPredators,nPreys))
 
 # store the interaction matrix for each cell
 for x in range(xCells):
     interactionMatrix=np.zeros(0)
+    # iterate over predator populations in cell x
     for ix,predatorPresence in enumerate(predatorPopByCell[x,:]):
+        # if predator is in cell x ...
         if predatorPresence == 1:
-            cellid = x+xCells*y
+            # get the prey weights at the end of the simulation
             normalizedPreyWeights = predatorPopulationList[ix].getNormalizedPreyWeights(param,preyPopulationList)
-            # print("Predator Population "+ str(ix) +" is of species")
-            # print(predatorPopulationList[ix].species.id)
-            # print("Normalized prey weights for the predator population "+str(ix))
-            # print(normalizedPreyWeights)
+            # if the predator is actually eating someone...
             if np.any(normalizedPreyWeights>0):
+                # normalize the the prey weights (NB: maybe this is useless as i think it's already normalized)
                 normalizedPreyWeights/=np.max(normalizedPreyWeights)
-            populationInteractionVector=normalizedPreyWeights
-            populationInteractionVector[populationInteractionVector<1]=0
-            # print("Interaction Vector for the predator population "+ str(ix))
-            # print(populationInteractionVector)
 
+            # this is the realized interactions once param has an effect on diet breadth
+            populationInteractionVector=normalizedPreyWeights
+            # all the prey weights which are not maximum are assumed to be zero:
+            # i.e. the predator chooses the prey he likes the most among those that he can get
+            populationInteractionVector[populationInteractionVector<1]=0
+
+            # now iterate over the interaction of populations to get the species
+            # that are interacting
             for jx,populationInteraction in enumerate(populationInteractionVector):
                 if populationInteraction == 1:
+                    # the prey populations are listed in order in the preyWeights so we can use jx
                     prey_sid=preyPopulationList[jx].species.id
+                    # the predatr population we currently looking at is in position ix of the list
                     predator_sid = predatorPopulationList[ix].species.id
-                    interactionMatrixList[cellid,predator_sid,prey_sid]=1
-
-
-# print("\n")
-# print(interactionMatrixList[0,:,:])
-# print("\n")
+                    # this is the interaction matrix at each cell
+                    interactionMatrixList[x,predator_sid,prey_sid]=1
 
 #global interaction matrix
 globalInteractionMatrix = np.zeros((nPredators,nPreys))
-for ix in range(ncells):
+for ix in range(xCells):
     for jx in range(nPredators):
         for kx in range(nPreys):
             if interactionMatrixList[ix,jx,kx]==1:
@@ -280,35 +276,42 @@ preyDiet = np.transpose([np.sum(globalInteractionMatrix,axis=0)])
 # print(preyDiet)
 
 # calculate the fraction of the total area occupied by each species
-predatorOccupancyMatrix=np.zeros((ncells,nPredators))
+predatorOccupancyMatrix=np.zeros((xCells,nPredators))
 for x in range(xCells):
-    for y in range(yCells):
-        for ix,predatorPresence in enumerate(predatorPopByCell[x,y,:]):
-            if predatorPresence == 1:
-                cellid = x+xCells*y
-                sid = predatorPopulationList[ix].species.id
-                predatorOccupancyMatrix[cellid,sid]=1
+    for ix,predatorPresence in enumerate(predatorPopByCell[x,:]):
+        if predatorPresence == 1:
+            sid = predatorPopulationList[ix].species.id
+            predatorOccupancyMatrix[x,sid]=1
 
 preyOccupancyMatrix=np.zeros((ncells,nPreys))
 for x in range(xCells):
-    for y in range(yCells):
-        for ix,preyPresence in enumerate(preyPopByCell[x,y,:]):
-            if preyPresence == 1:
-                cellid = x+xCells*y
-                sid = preyPopulationList[ix].species.id
-                preyOccupancyMatrix[cellid,sid]=1
+    for ix,preyPresence in enumerate(preyPopByCell[x,:]):
+        if preyPresence == 1:
+            sid = preyPopulationList[ix].species.id
+            preyOccupancyMatrix[x,sid]=1
 
 preyOccupancy = np.transpose([np.sum(preyOccupancyMatrix,axis=0)])
 predatorOccupancy = np.transpose([np.sum(predatorOccupancyMatrix,axis=0)])
 
-# print(predatorOccupancy)
-# print(preyOccupancy)
+# save the environmental spread and the initial list size
+stdPredatorArray=np.zeros(len(predatorList))
+listpredatorArray=np.zeros(len(predatorList))
+for ix,predator in enumerate(predatorList):
+    stdPredatorArray[ix] = predator.std
+    listPredatorArray[ix] = len(predator.prey)
 
-saveArrayPredator=np.concatenate( (predatorDiet ,predatorOccupancy) , axis=1)
-saveArrayPrey=np.concatenate((preyDiet,preyOccupancy),axis=1)
+stdPreyArray=np.zeros(len(preyList))
+for ix,prey in enumerate(preyList):
+    stdPreyArray[ix] = prey.std
 
-np.savetxt(filename_prey,saveArrayPrey)
-np.savetxt(filename_predator,saveArrayPredator)
+paramPreyArray = np.ones(len(preyList))*param
+paramPredatorArray = np.ones(len(predatorList))*param
+
+saveArrayPredator=np.concatenate( (paramPredatorArray, stdPredatorArray, listPredatorArray, predatorDiet ,predatorOccupancy) , axis=1)
+saveArrayPrey=np.concatenate( (paramPreyArray, stdPreyArray, preyDiet, preyOccupancy),axis=1)
+
+np.savetxt(filename_prey,saveArrayPrey,delimiter=",",header="phi,spread,Npreferedprey,Nrealizedprey,occupancy")
+np.savetxt(filename_predator,saveArrayPredator,delimiter=",",header="phi,spread,Npredators,occupancy")
 
 t1 = time.time()
 print("Time elapsed: ", t1 - t0)
